@@ -1,5 +1,5 @@
-import hash_functions.py
-import net_functions.py
+import hash_functions
+import net_functions
 
 def locate():
 	pass
