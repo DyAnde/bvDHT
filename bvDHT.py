@@ -13,6 +13,9 @@ NOTES:
 # local storage of the DHT
 dht = {}
 
+# finger table
+finger_table: dict["str", "str"] = {}
+
 
 def locate(hashed_key: str) -> str:
 	"""
