@@ -15,7 +15,7 @@ from socket import *
 ##############################
 # recvall equivalent to sendall
 
-def recvall(conn, msgLength):
+def recvall(conn: socket, msgLength: int):
     msg = b''
     while len(msg) < msgLength:
         retVal = conn.recv(msgLength - len(msg))
