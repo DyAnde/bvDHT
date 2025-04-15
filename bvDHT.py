@@ -14,7 +14,7 @@ NOTES:
 dht = {}
 
 # finger table
-finger_table: dict["str", "str"] = {}
+finger_table: dict[str, str] = {}
 
 
 def locate(hashed_key: str) -> str:
