@@ -2,12 +2,13 @@ import hash_functions
 import net_functions
 from socket import *
 import threading
+from sys import argv, exit
 
 """
 NOTES:
 - Command Messages: (All Caps) \n
 - PeerAddress: “IP:port” \n
-- Hashed Key: str( 128-bit integer) \n
+- Hashed Key: str( 160-bit integer) \n
 - Acknowledgement: Yes ( 1\n ) or No ( 0\n )
 - Integers in general: str ( int ) \n
 """
@@ -25,7 +26,15 @@ def getLine(conn: socket):
 dht = {}
 
 # finger table
-finger_table: dict[str, str] = {}
+finger_table: dict[str, str] = {
+	"Self" : None,
+	"Prev" : None,
+	"Next" : None,
+	"Peer1" : None,
+	"Peer2" : None,
+	"Peer3" : None,
+	"Peer4" : None,
+}
 
 
 def locate(hashed_key: str) -> str:
@@ -301,7 +310,7 @@ def handleClient(connInfo: tuple) -> None:
 	
 	### Protocol:
 	- [Peer->Self] Command
-	- [Self] Go to that command function
+	- [Self] Do that command function
 	"""
 	commands = {
 		"LOCATE": recvLocateReq,
@@ -335,6 +344,53 @@ localIP = net_functions.getLocalIPAddress()
 print(f"Listening on {localIP}:{localPort}")
 
 hashedPosition = hash_functions.getHashIndex((localIP, localPort))
+
+# Ensure the program is launched correctly
+if len(argv) > 2:
+	print('Too many arguments\nUsage:\npython3 bvDHT.py <IP>:<Port>\
+	   \nOR\npython3 bvDHT.py')
+	exit(1)
+elif len(argv) == 2:
+	if ":" not in argv[1]:
+		print('Invalid argument\nUsage:\npython3 bvDHT.py <IP>:<Port>\
+		   \nOR\npython3 bvDHT.py')
+		exit(1)
+
+def run():
+	"""
+	Main function to run the DHT
+	"""
+	if len(argv) == 2:
+		peer_addr = argv[1]
+		if not connect(peer_addr):
+			print("Failed to connect to peer")
+			exit(1)
+	else:
+		print("No peer address provided, running standalone DHT")
+		running = True
+		while running:
+			try:
+				commands = ["insert", "get", "remove", "disconnect"]
+				command = input("What do?: ").lower()
+				match command:
+					case "insert":
+						pass
+					case "get":
+						pass
+					case "remove":
+						pass
+					case "disconnect":
+						pass
+					case _: # This is the default case, catches invalid commands
+						print("Invalid command. Please use one of the following:")
+						print(commands)
+						continue
+			except KeyboardInterrupt:
+				print("Shutting down...")
+				running = False
+				break
+
+threading.Thread(target=run, args=(), daemon=True).start()
 
 while True:
 	try:
