@@ -1,5 +1,7 @@
 import hash_functions
 import net_functions
+from socket import *
+import threading
 
 """
 NOTES:
@@ -9,6 +11,15 @@ NOTES:
 - Acknowledgement: Yes ( 1\n ) or No ( 0\n )
 - Integers in general: str ( int ) \n
 """
+
+def getLine(conn: socket):
+	msg = b""
+	while True:
+		ch = conn.recv(1)
+		msg += ch
+		if ch == b"\n" or len(ch) == 0:
+			break
+	return msg.decode()
 
 # local storage of the DHT
 dht = {}
@@ -27,6 +38,19 @@ def locate(hashed_key: str) -> str:
 	- [Peer->Self] PeerAddress
 
 	@param hashed_key: The hashed key to locate
+	@return: The peer that has ownership of the hashed_key
+	"""
+	pass
+
+def recvLocateReq(connInfo: tuple) -> str:
+	"""
+	Receive a locate request from a peer and process it
+
+	### Protocol:
+	- [Peer->Self] LOCATE
+	- [Peer->Self] HashedKey
+	- [Self->Peer] PeerAddress
+
 	@return: The peer that has ownership of the hashed_key
 	"""
 	pass
@@ -56,6 +80,28 @@ def connect(peer_addr: str) -> bool:
 	"""
 	pass
 
+def recvConnectReq(connInfo: tuple) -> bool:
+	"""
+	Receive a connect request from a peer and process it
+
+	### Protocol:
+	- [Peer->Self] CONNECT
+	- [Peer->Self] HashedKey (of Self's PeerAddress)
+	- [Self->Peer] Acknowledgement if 1, continue on - if 0, bail out of protocol
+	- Transfer all entries
+		- [Self->Peer] integer numEntries
+		- For loop - numEntries times do the following:
+			- [Self->Peer] HashKey of entry
+			- [Self->Peer] integer len(ValueData)
+			- [Self->Peer] byteArray of ValueData
+	- [Self->Peer] PeerAddress of it's Next peer
+	- Complete Update Prev on Next Node sub-protocol
+	- [Self->Peer] PeerAddress of Self
+
+	@return: True if connected, False otherwise
+	"""
+	pass
+
 def disconnect() -> None:
 	"""
 	Disconnect from the DHT nicely by transferring ownership of your data to "Prev"
@@ -76,6 +122,26 @@ def disconnect() -> None:
 	"""
 	pass
 
+def recvDisconnectReq(connInfo: tuple) -> None:
+	"""
+	Receive a disconnect request from a peer and process it
+
+	### Protocol:
+	- [Peer->Self] DISCONNECT
+	- [Peer->Self] Peer's Next PeerAddress
+	- Transfer all entries
+		- [Peer->Self] integer numEntries
+		- For loop - numEntries times do the following:
+			- [Peer->Self] HashKey of entry
+			- [Peer->Self] integer len(ValueData)
+			- [Peer->Self] byteArray of ValueData
+	- Prev performs UpdatePrev on Next
+	- [Self->Peer] Acknowledgement
+
+	@return: None
+	"""
+	pass
+
 def update_prev(peer_addr: str) -> bool:
 	"""
 	Update your "Next" that you are their new "Prev"
@@ -84,6 +150,20 @@ def update_prev(peer_addr: str) -> bool:
 	- [Self->Next] UPDATE_PREV
 	- [Self->Next] PeerAddress of self
 	- [Next->Self] Acknowledgement
+
+	@param peer_addr: The address of the peer to update
+	@return: True if updated, False otherwise
+	"""
+	pass
+
+def recvUpdatePrevReq(connInfo: tuple) -> bool:
+	"""
+	Receive an update request from a peer and process it
+
+	### Protocol:
+	- [Peer->Self] UPDATE_PREV
+	- [Peer->Self] PeerAddress of self
+	- [Self->Peer] Acknowledgement
 
 	@param peer_addr: The address of the peer to update
 	@return: True if updated, False otherwise
@@ -105,6 +185,20 @@ def contains(hashed_key: str) -> bool:
 	"""
 	pass
 
+def recvContainsReq(connInfo: tuple) -> bool:
+	"""
+	Receive a contains request from a peer and process it
+	
+	### Protocol:
+	- [Peer->Self] CONTAINS
+	- [Peer->Self] HashedKey
+	- [Self->Peer] Acknowledgement of ownership of HashedKey Space Bail out if answer is "0\\n"
+	- [Self->Peer] Acknowledgement of having entry
+
+	@return: True if the hashed_key exists, False otherwise
+	"""
+	pass
+
 def get(hashed_key: str) -> bool:
 	"""
 	Ask the DHT for the value associated with the hashed_key
@@ -117,6 +211,21 @@ def get(hashed_key: str) -> bool:
 	- [Peer->Self] byteArray of ValueData
 
 	@param hashed_key: The hashed key to get the value for
+	@return: True if the value was retrieved, False otherwise
+	"""
+	pass
+
+def recvGetReq(connInfo: tuple) -> bool:
+	"""
+	Receive a get request from a peer and process it
+	
+	### Protocol:
+	- [Peer->Self] GET
+	- [Peer->Self] HashedKey
+	- [Self->Peer] Acknowledgement of ownership of HashedKey Space Bail out if answer is "0\\n"
+	- [Self->Peer] integer len(ValueData)
+	- [Self->Peer] byteArray of ValueData
+
 	@return: True if the value was retrieved, False otherwise
 	"""
 	pass
@@ -139,6 +248,22 @@ def insert(hashed_key: str, value: bytes) -> bool:
 	"""
 	pass
 
+def recvInsertReq(connInfo: tuple) -> bool:
+	"""
+	Receive an insert request from a peer and process it
+	
+	### Protocol:
+	- [Peer->Self] INSERT
+	- [Peer->Self] HashedKey
+	- [Self->Peer] Acknowledgement of ownership of HashedKey Space Bail out if answer is "0\\n"
+	- [Peer->Self] integer len(ValueData)
+	- [Peer->Self] byteArray of ValueData
+	- [Self->Peer] Acknowledgement of successful INSERT
+
+	@return: True if the value was inserted, False otherwise
+	"""
+	pass
+
 def remove(hashed_key: str) -> bool:
 	"""
 	Remove data from the DHT
@@ -154,3 +279,67 @@ def remove(hashed_key: str) -> bool:
 	@return: True if the value was removed, False otherwise
 	"""
 	pass
+
+def recvRemoveReq(connInfo: tuple) -> bool:
+	"""
+	Receive a remove request from a peer and process it
+	
+	### Protocol:
+	- [Peer->Self] REMOVE
+	- [Peer->Self] HashedKey
+	- [Self->Peer] Acknowledgement of ownership of HashedKey Space Bail out if answer is "0\\n"
+	- [Self->Peer] Acknowledgement of successful REMOVE
+		- Also acknowledge "1\\n" if key didn't exist. Remove didn't fail.
+	
+	@return: True if the value was removed, False otherwise
+	"""
+	pass
+
+def handleClient(connInfo: tuple) -> None:
+	"""
+	Handle incoming client connections and process commands
+	
+	### Protocol:
+	- [Peer->Self] Command
+	- [Self] Go to that command function
+	"""
+	commands = {
+		"LOCATE": recvLocateReq,
+		"CONNECT": recvConnectReq,
+		"DISCONNECT": recvDisconnectReq,
+		"UPDATE_PREV": recvUpdatePrevReq,
+		"CONTAINS": recvContainsReq,
+		"GET": recvGetReq,
+		"INSERT": recvInsertReq,
+		"REMOVE": recvRemoveReq,
+	}
+
+	sock = connInfo[0]
+	command = getLine(sock)
+	if command in commands:
+		print(f"Received command: {command}")
+		func = commands[command]
+		func(connInfo)
+	else:
+		print(f"Unknown command: {command}")
+	# Close the socket after processing
+	sock.close()
+
+# This is us listening for any incoming connections
+listener = socket(AF_INET, SOCK_STREAM)
+listener.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+listener.bind(('', 0))  # Bind to any available port
+listener.listen(5)  # Listen for incoming connections
+localPort = listener.getsockname()[1]  # Get the port number
+localIP = net_functions.getLocalIPAddress()
+print(f"Listening on {localIP}:{localPort}")
+
+hashedPosition = hash_functions.getHashIndex((localIP, localPort))
+
+while True:
+	try:
+		threading.Thread(target=handleClient, args=(listener.accept(), ), daemon=True).start()
+	except KeyboardInterrupt:
+		print("Shutting down...")
+		listener.close()
+		break
