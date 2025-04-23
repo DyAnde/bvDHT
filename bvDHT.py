@@ -56,7 +56,7 @@ def recvLocateReq(connInfo: tuple) -> str:
 	Receive a locate request from a peer and process it
 
 	### Protocol:
-	- [Peer->Self] LOCATE
+	- [Peer->Self] LOCATE (already received in "handleClient")
 	- [Peer->Self] HashedKey
 	- [Self->Peer] PeerAddress
 
@@ -94,7 +94,7 @@ def recvConnectReq(connInfo: tuple) -> bool:
 	Receive a connect request from a peer and process it
 
 	### Protocol:
-	- [Peer->Self] CONNECT
+	- [Peer->Self] CONNECT (already received in "handleClient")
 	- [Peer->Self] HashedKey (of Self's PeerAddress)
 	- [Self->Peer] Acknowledgement if 1, continue on - if 0, bail out of protocol
 	- Transfer all entries
@@ -136,7 +136,7 @@ def recvDisconnectReq(connInfo: tuple) -> None:
 	Receive a disconnect request from a peer and process it
 
 	### Protocol:
-	- [Peer->Self] DISCONNECT
+	- [Peer->Self] DISCONNECT (already received in "handleClient")
 	- [Peer->Self] Peer's Next PeerAddress
 	- Transfer all entries
 		- [Peer->Self] integer numEntries
@@ -170,7 +170,7 @@ def recvUpdatePrevReq(connInfo: tuple) -> bool:
 	Receive an update request from a peer and process it
 
 	### Protocol:
-	- [Peer->Self] UPDATE_PREV
+	- [Peer->Self] UPDATE_PREV (already received in "handleClient")
 	- [Peer->Self] PeerAddress of self
 	- [Self->Peer] Acknowledgement
 
@@ -199,7 +199,7 @@ def recvContainsReq(connInfo: tuple) -> bool:
 	Receive a contains request from a peer and process it
 	
 	### Protocol:
-	- [Peer->Self] CONTAINS
+	- [Peer->Self] CONTAINS (already received in "handleClient")
 	- [Peer->Self] HashedKey
 	- [Self->Peer] Acknowledgement of ownership of HashedKey Space Bail out if answer is "0\\n"
 	- [Self->Peer] Acknowledgement of having entry
@@ -229,7 +229,7 @@ def recvGetReq(connInfo: tuple) -> bool:
 	Receive a get request from a peer and process it
 	
 	### Protocol:
-	- [Peer->Self] GET
+	- [Peer->Self] GET (already received in "handleClient")
 	- [Peer->Self] HashedKey
 	- [Self->Peer] Acknowledgement of ownership of HashedKey Space Bail out if answer is "0\\n"
 	- [Self->Peer] integer len(ValueData)
@@ -262,7 +262,7 @@ def recvInsertReq(connInfo: tuple) -> bool:
 	Receive an insert request from a peer and process it
 	
 	### Protocol:
-	- [Peer->Self] INSERT
+	- [Peer->Self] INSERT (already received in "handleClient")
 	- [Peer->Self] HashedKey
 	- [Self->Peer] Acknowledgement of ownership of HashedKey Space Bail out if answer is "0\\n"
 	- [Peer->Self] integer len(ValueData)
@@ -294,7 +294,7 @@ def recvRemoveReq(connInfo: tuple) -> bool:
 	Receive a remove request from a peer and process it
 	
 	### Protocol:
-	- [Peer->Self] REMOVE
+	- [Peer->Self] REMOVE (already received in "handleClient")
 	- [Peer->Self] HashedKey
 	- [Self->Peer] Acknowledgement of ownership of HashedKey Space Bail out if answer is "0\\n"
 	- [Self->Peer] Acknowledgement of successful REMOVE
@@ -334,17 +334,6 @@ def handleClient(connInfo: tuple) -> None:
 	# Close the socket after processing
 	sock.close()
 
-# This is us listening for any incoming connections
-listener = socket(AF_INET, SOCK_STREAM)
-listener.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-listener.bind(('', 0))  # Bind to any available port
-listener.listen(5)  # Listen for incoming connections
-localPort = listener.getsockname()[1]  # Get the port number
-localIP = net_functions.getLocalIPAddress()
-print(f"Listening on {localIP}:{localPort}")
-
-hashedPosition = hash_functions.getHashIndex((localIP, localPort))
-
 # Ensure the program is launched correctly
 if len(argv) > 2:
 	print('Too many arguments\nUsage:\npython3 bvDHT.py <IP>:<Port>\
@@ -356,6 +345,17 @@ elif len(argv) == 2:
 		   \nOR\npython3 bvDHT.py')
 		exit(1)
 
+# This is us listening for any incoming connections
+listener = socket(AF_INET, SOCK_STREAM)
+listener.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+listener.bind(('', 0))  # Bind to any available port
+listener.listen(5)  # Listen for incoming connections
+localPort = listener.getsockname()[1]  # Get the port number
+localIP = net_functions.getLocalIPAddress()
+print(f"Listening on {localIP}:{localPort}")
+
+hashedPosition = hash_functions.getHashIndex((localIP, localPort))
+
 def run():
 	"""
 	Main function to run the DHT
@@ -366,29 +366,29 @@ def run():
 			print("Failed to connect to peer")
 			exit(1)
 	else:
-		print("No peer address provided, running standalone DHT")
-		running = True
-		while running:
-			try:
-				commands = ["insert", "get", "remove", "disconnect"]
-				command = input("What do?: ").lower()
-				match command:
-					case "insert":
-						pass
-					case "get":
-						pass
-					case "remove":
-						pass
-					case "disconnect":
-						pass
-					case _: # This is the default case, catches invalid commands
-						print("Invalid command. Please use one of the following:")
-						print(commands)
-						continue
-			except KeyboardInterrupt:
-				print("Shutting down...")
-				running = False
-				break
+		print("No peer address provided, creating DHT")
+	running = True
+	while running:
+		try:
+			commands = ["insert", "get", "remove", "disconnect"]
+			command = input("What do?: ").lower()
+			match command:
+				case "insert":
+					pass
+				case "get":
+					pass
+				case "remove":
+					pass
+				case "disconnect":
+					pass
+				case _: # This is the default case, catches invalid commands
+					print("Invalid command. Please use one of the following:")
+					print(commands)
+					continue
+		except KeyboardInterrupt:
+			print("Shutting down...")
+			running = False
+			break
 
 threading.Thread(target=run, args=(), daemon=True).start()
 
