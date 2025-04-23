@@ -43,7 +43,6 @@ finger_table: dict[str, str] = {
 	"4" : None,
 }
 
-
 def locate(hashed_key: str):
 	"""
 	Find the peer that has the hashed_key
@@ -119,11 +118,11 @@ def connect(peer_address: str):
 
 def recvConnectReq(connInfo: tuple):
 	"""
-	Receive a connect request from a peer and process it
+	Receive a connect request from a new peer and process it
 
 	### Protocol:
 	- [Peer->Self] CONNECT (already received in "handleClient")
-	- [Peer->Self] HashedKey (of Self's PeerAddress)
+	- [Peer->Self] HashedKey (of Peer's PeerAddress)
 	- [Self->Peer] Acknowledgement if 1, continue on - if 0, bail out of protocol
 	- Transfer all entries
 		- [Self->Peer] integer numEntries
@@ -135,7 +134,22 @@ def recvConnectReq(connInfo: tuple):
 	- Complete Update Prev on Next Node sub-protocol
 	- [Self->Peer] PeerAddress of Self
 	"""
-	pass
+	peer_hashed_key = getLine(connInfo)
+	connInfo.send(b"1\n")  # Acknowledgement
+	# Begin transfer of all entries
+	num_entries = len(dht)
+	connInfo.send(str(num_entries+"\n").encode())
+	for key, value in dht.items():
+		connInfo.send(str(key+"\n").encode())
+		connInfo.send(str(len(value)+"\n").encode())
+		connInfo.send(value)
+	# Send your next peer address
+	connInfo.send((finger_table["Next"]+"\n").encode())
+	# The peer does update_prev on next
+	connInfo.send(selfAddress.encode())
+	connInfo.close()
+	# Update the finger table
+	finger_table["Next"] = peer_hashed_key
 
 def disconnect():
 	"""
@@ -155,7 +169,27 @@ def disconnect():
 
 	*** Ownership Officially Transferred by completing this ***
 	"""
-	pass
+	# create socket object from the finger table
+	peer_ip, peer_port = finger_table["Prev"].split(":")
+	peer_port = int(peer_port)
+	connInfo = socket(AF_INET, SOCK_STREAM)
+	connInfo.connect((peer_ip, peer_port))
+	# Do the disconnect protocol
+	connInfo.send(b"DISCONNECT\n")
+	connInfo.send(finger_table["Next"].encode())
+	# Transfer all entries
+	connInfo.send(str(len(dht)+"\n").encode())
+	for key, value in dht.items():
+		connInfo.send(key.encode())
+		connInfo.send(str(len(value)+"\n").encode())
+		connInfo.send(value)
+	# Receive acknowledgement
+	ack = getLine(connInfo)
+	if ack == "0":
+		print("DISCONNECT: Something went wrong.")
+	print("Exiting...")
+	connInfo.close()
+	exit(0)
 
 def recvDisconnectReq(connInfo: tuple):
 	"""
@@ -163,7 +197,7 @@ def recvDisconnectReq(connInfo: tuple):
 
 	### Protocol:
 	- [Next->Self] DISCONNECT (already received in "handleClient")
-	- [Next->Self] Next's Next PeerAddress
+	- [Next->Self] Next's Next PeerAddress (update the finger table)
 	- Transfer all entries
 		- [Next->Self] integer numEntries
 		- For loop - numEntries times do the following:
@@ -173,7 +207,19 @@ def recvDisconnectReq(connInfo: tuple):
 	- Prev performs UpdatePrev on Next
 	- [Self->Next] Acknowledgement
 	"""
-	pass
+	new_next_peer_addr = getLine(connInfo)
+	finger_table["Next"] = new_next_peer_addr # Update the finger table
+	# Transfer all entries
+	num_entries = int(getLine(connInfo))
+	for _ in range(num_entries):
+		entry_hashed_key = getLine(connInfo)
+		len_value_data = int(getLine(connInfo))
+		value_data = connInfo.recv(len_value_data)
+		dht[entry_hashed_key] = value_data
+	# Perform UpdatePrev on Next
+	update_prev(new_next_peer_addr)
+	connInfo.send(b"1\n")  # Acknowledgement
+	connInfo.close()
 
 def update_prev(peer_addr: str):
 	"""
@@ -210,10 +256,11 @@ def recvUpdatePrevReq(connInfo: tuple):
 	- [Peer->Self] UPDATE_PREV (already received in "handleClient")
 	- [Peer->Self] PeerAddress of self
 	- [Self->Peer] Acknowledgement
-
-	@param peer_addr: The address of the peer to update
 	"""
-	pass
+	peer_addr = getLine(connInfo)
+	finger_table["Prev"] = peer_addr  # Update the finger table
+	connInfo.send(b"1\n")  # Acknowledgement
+	connInfo.close()
 
 def contains(hashed_key: str):
 	"""
@@ -400,7 +447,7 @@ commands = ["insert", "get", "remove", "disconnect"]
 running = True
 while running:
 	try:
-		command = input("What do?: ").lower()
+		command = input("What do?: ").strip().lower()
 		match command:
 			case "insert":
 				pass
