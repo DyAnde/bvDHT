@@ -37,10 +37,10 @@ finger_table: dict[str, str] = {
 	"Self" : None,
 	"Prev" : None,
 	"Next" : None,
-	"Peer1" : None,
-	"Peer2" : None,
-	"Peer3" : None,
-	"Peer4" : None,
+	"1" : None,
+	"2" : None,
+	"3" : None,
+	"4" : None,
 }
 
 
@@ -113,7 +113,7 @@ def connect(peer_address: str):
 	next_peer_addr = getLine(connInfo)
 	finger_table["Next"] = next_peer_addr # Update the finger table
 	# Update the previous peer
-	update_prev(next_peer_addr) # Updates the finger table
+	update_prev(next_peer_addr)
 	connInfo.send(selfAddress.encode())
 	connInfo.close()
 
@@ -186,7 +186,21 @@ def update_prev(peer_addr: str):
 
 	@param peer_addr: The address of the peer to update
 	"""
-	pass
+	# create a socket object given the peer address
+	peer_ip, peer_port = peer_addr.split(":")
+	peer_port = int(peer_port)
+	connInfo = socket(AF_INET, SOCK_STREAM)
+	connInfo.connect((peer_ip, peer_port))
+	# Do the update_prev protocol
+	connInfo.send(b"UPDATE_PREV\n")
+	connInfo.send(selfAddress.encode())
+	ack = getLine(connInfo)
+	if ack == "0":
+		print("UPDATE_PREV: Something went wrong.")
+	else:
+		print("UPDATE_PREV: Successfully updated the previous peer.")
+	connInfo.close()
+	return
 
 def recvUpdatePrevReq(connInfo: tuple):
 	"""
@@ -345,15 +359,10 @@ def handleClient(connInfo: tuple):
 	sock.close()
 
 # Ensure the program is launched correctly
-if len(argv) > 2:
-	print('Too many arguments\nUsage:\npython3 bvDHT.py <IP>:<Port>\
+if len(argv) > 3 or (len(argv) <= 2 and len(argv) != 1):
+	print('Incorrect number of arguments\nUsage:\npython3 bvDHT.py <IP> <Port>\
 	   \nOR\npython3 bvDHT.py')
 	exit(1)
-elif len(argv) == 2:
-	if ":" not in argv[1]:
-		print('Invalid argument\nUsage:\npython3 bvDHT.py <IP>:<Port>\
-		   \nOR\npython3 bvDHT.py')
-		exit(1)
 
 # This is us listening for any incoming connections
 listener = socket(AF_INET, SOCK_STREAM)
@@ -365,48 +374,47 @@ localIP = net_functions.getLocalIPAddress()
 selfAddress = f"{localIP}:{localPort}\n"
 print(f"Listening on {selfAddress}")
 
-hashedKey: str = str(hash_functions.getHashIndex(selfAddress)) + "\n"
+hashedKey: str = str(hash_functions.getHashIndex((localIP, localPort))) + "\n"
 
-def run():
-	"""
-	Main function to run the DHT
-	"""
-	if len(argv) == 2:
-		peer_addr = argv[1]
-		if not connect(peer_addr):
-			print("Failed to connect to peer")
-			exit(1)
-	else:
-		print("No peer address provided, creating DHT")
-	running = True
-	while running:
+def start_listen():
+	while True:
 		try:
-			commands = ["insert", "get", "remove", "disconnect"]
-			command = input("What do?: ").lower()
-			match command:
-				case "insert":
-					pass
-				case "get":
-					pass
-				case "remove":
-					pass
-				case "disconnect":
-					pass
-				case _: # This is the default case, catches invalid commands
-					print("Invalid command. Please use one of the following:")
-					print(commands)
-					continue
+			threading.Thread(target=handleClient, args=(listener.accept(), ), daemon=True).start()
 		except KeyboardInterrupt:
-			print("Shutting down...")
-			running = False
+			listener.close()
 			break
 
-threading.Thread(target=run, args=(), daemon=True).start()
+# Main code to run the DHT
+if len(argv) == 3:
+	peer_addr = argv[1:]
+	peer_addr = ":".join(peer_addr) # Join the list into a string
+	if not connect(peer_addr):
+		print("Failed to connect to peer")
+		exit(1)
+else:
+	print("No peer address provided, creating DHT")
+# Start listening for incoming connections
+threading.Thread(target=start_listen, args=(), daemon=True).start()
 
-while True:
+commands = ["insert", "get", "remove", "disconnect"]
+running = True
+while running:
 	try:
-		threading.Thread(target=handleClient, args=(listener.accept(), ), daemon=True).start()
+		command = input("What do?: ").lower()
+		match command:
+			case "insert":
+				pass
+			case "get":
+				pass
+			case "remove":
+				pass
+			case "disconnect":
+				pass
+			case _: # This is the default case, catches invalid commands
+				print("Invalid command. Please use one of the following:")
+				print(commands)
+				continue
 	except KeyboardInterrupt:
-		print("Shutting down...")
-		listener.close()
+		running = False
+		print("Exiting...\n")
 		break
