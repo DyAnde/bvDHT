@@ -62,7 +62,7 @@ def disconnect() -> None:
 
 	### Protocol:
 	- [Self->Prev] DISCONNECT
-	- [Self->Prev] HashedKey (of Self's Next PeerAddress)
+	- [Self->Prev] Self's Next PeerAddress
 	- Transfer all entries
 		- [Self->Prev] integer numEntries
 		- For loop - numEntries times do the following:
