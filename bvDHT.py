@@ -136,16 +136,16 @@ def recvDisconnectReq(connInfo: tuple) -> None:
 	Receive a disconnect request from a peer and process it
 
 	### Protocol:
-	- [Peer->Self] DISCONNECT (already received in "handleClient")
-	- [Peer->Self] Peer's Next PeerAddress
+	- [Next->Self] DISCONNECT (already received in "handleClient")
+	- [Next->Self] Next's Next PeerAddress
 	- Transfer all entries
-		- [Peer->Self] integer numEntries
+		- [Next->Self] integer numEntries
 		- For loop - numEntries times do the following:
-			- [Peer->Self] HashKey of entry
-			- [Peer->Self] integer len(ValueData)
-			- [Peer->Self] byteArray of ValueData
+			- [Next->Self] HashKey of entry
+			- [Next->Self] integer len(ValueData)
+			- [Next->Self] byteArray of ValueData
 	- Prev performs UpdatePrev on Next
-	- [Self->Peer] Acknowledgement
+	- [Self->Next] Acknowledgement
 
 	@return: None
 	"""
